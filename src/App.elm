@@ -2,6 +2,7 @@ module App exposing (..)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (..)
 import Http exposing (..)
 import Json.Decode as Decode exposing (Decoder)
 import RemoteData exposing (..)
@@ -11,8 +12,15 @@ import List exposing (..)
 ---- MODEL ----
 
 
+type FilterType
+    = All
+    | Odd
+    | Even
+
+
 type alias Model =
     { users : WebData (List User)
+    , currentFilterType : FilterType
     }
 
 
@@ -26,7 +34,7 @@ type alias User =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { users = RemoteData.NotAsked }, getUser )
+    ( { users = RemoteData.NotAsked, currentFilterType = All }, getUser )
 
 
 
@@ -35,6 +43,7 @@ init =
 
 type Msg
     = UsersResponse (WebData (List User))
+    | Filter FilterType
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -43,12 +52,28 @@ update msg model =
         UsersResponse response ->
             ( { model | users = response }, Cmd.none )
 
+        Filter filter ->
+            ( { model | currentFilterType = filter }, Cmd.none )
+
 
 
 ---- VIEW ----
 
 
-view : Model -> Html msg
+filter : FilterType -> List User -> List User
+filter filterType users =
+    case filterType of
+        All ->
+            users
+
+        Odd ->
+            List.filter (\user -> user.id % 2 /= 0) users
+
+        Even ->
+            List.filter (\user -> user.id % 2 == 0) users
+
+
+view : Model -> Html Msg
 view model =
     case model.users of
         NotAsked ->
@@ -61,10 +86,22 @@ view model =
             text ("Error: " ++ toString err)
 
         Success users ->
-            viewUsers users
+            div []
+                [ viewFilters users
+                , viewUsers (filter model.currentFilterType users)
+                ]
 
 
-viewUsers : List User -> Html msg
+viewFilters : List User -> Html Msg
+viewFilters users =
+    div []
+        [ button [ onClick (Filter Odd) ] [ text "Odd" ]
+        , button [ onClick (Filter Even) ] [ text "Even" ]
+        , button [ onClick (Filter All) ] [ text "Clear" ]
+        ]
+
+
+viewUsers : List User -> Html Msg
 viewUsers users =
     users
         |> List.map
